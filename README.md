@@ -14,12 +14,10 @@ Example:
 
 ##Running
 
-`pipenv run python snapshotuser/snapshotuser.py
+`pipenv run python snapshotuser/snapshotuser.py <commad> <subcommand>
 <--project=PROJECT>`
 
 *command*
-list: To List EC2 Instances
-start: To Start EC2 Instances
-stop: To Stop EC2 Instances
-
+is instances, volumes, or snapshots
+*subcommand* - depends in command
 *project* is optional
