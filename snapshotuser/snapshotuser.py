@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import click
 
 session=boto3.Session(profile_name='snapshotuser')
@@ -24,7 +25,11 @@ def snapshot():
 @snapshot.command('list')
 @click.option('--project',default=None,
     help="Only instances for project (tag Project:<name>)")
-def list_instances(project):
+@click.option('--all','list_all',default=False,is_flag=True,
+    help="List asll snapshots for each volume, not just recent snapshots")
+def list_snapshots(project,list_all):
+
+
     "To List of EC2 Volume's snapshots"
     instances=filter_instances(project)
     for i in instances:
@@ -38,6 +43,7 @@ def list_instances(project):
                 s.progress,
                 s.start_time.strftime("%c")
                 )))
+                if s.state == 'completed'and not list_all:break
     return
 
 
@@ -68,6 +74,10 @@ def list_instances(project):
 def instances():
     """Commands for instances"""
 
+def has_pending_snapshots(volume):
+    snapshots = list(volume.snapshots.all())
+    return snapshots and snapshots[0].state=='pending'
+
 @instances.command('snapshots',
     help="Create snapshots for all volumes")
 @click.option('--project',default=None,
@@ -82,6 +92,9 @@ def create_snapshots(project):
         i.stop()
         i.wait_until_stopped()
         for v in i.volumes.all():
+            if has_pending_snapshots(v):
+                print("Skipping, {0}, snapshot already in progress".format(v.id))
+                continue
             print("Creating snapshot for {0} Instance and {1} Volume".format(i.id,v.id))
             v.create_snapshot(Description="Created by SnapshotUser")
         print("Starting {0}...".format(i.id))
@@ -122,7 +135,11 @@ def stop_instances(project):
 
     for i in instances:
         print("Stopping {0} instance...".format(i.id))
-        i.stop()
+        try:
+            i.stop()
+        except botocore.exceptions.ClientError as e:
+            print("Could not stop {0}..".format(i.id)+str(e))
+            continue
 
     return
 
@@ -136,7 +153,12 @@ def stop_instances(project):
 
     for i in instances:
         print("Starting {0} instance...".format(i.id))
-        i.start()
+        try:
+            i.start()
+        except botocore.exceptions.ClientError as e:
+            print("Could not start {0}..".format(i.id)+str(e))
+            continue
+
 
     return
 
